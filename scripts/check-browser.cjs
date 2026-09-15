@@ -81,7 +81,9 @@ const WebSocket = require("/usr/share/nodejs/ws");
         : "http://127.0.0.1:5173",
     });
     await pause(mode.startsWith("reference") ? 10000 : 2200);
-    await evaluate("document.fonts.ready");
+    await evaluate(
+      "Promise.race([document.fonts.ready,new Promise(resolve=>setTimeout(resolve,8000))])",
+    );
     await pause(1000);
   }
   if (mode.startsWith("reference")) {
@@ -314,7 +316,7 @@ const WebSocket = require("/usr/share/nodejs/ws");
     results.push([
       "Project cursor follows pointer",
       await evaluate(
-        `document.querySelector('.project').classList.contains('cursor-active')&&Number(getComputedStyle(document.querySelector('.project-explore')).opacity)>.9`,
+        `(()=>{const c=document.querySelector('.project-explore'),r=c.getBoundingClientRect();return document.querySelector('.project').classList.contains('cursor-active')&&Number(getComputedStyle(c).opacity)>.9&&r.width>50&&r.top>0&&r.top<innerHeight})()`,
       ),
     ]);
     console.log(
@@ -346,6 +348,42 @@ const WebSocket = require("/usr/share/nodejs/ws");
     console.log(JSON.stringify({ results, errors }, null, 2));
     if (results.some(([, pass]) => !pass) || errors.length)
       process.exitCode = 1;
+  }
+  if (mode === "reduced") {
+    const results = [];
+    const reducedState = () =>
+      evaluate(
+        `!document.documentElement.classList.contains('lenis') && document.querySelectorAll('.pin-spacer').length===0 && getComputedStyle(document.querySelector('.hero-fluid')).display==='none' && [...document.querySelectorAll('.motion-video')].every(v=>v.paused)`,
+      );
+    results.push([
+      "Reduced motion disables fluid, pinning, smooth scrolling and video",
+      await reducedState(),
+    ]);
+    await call("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "no-preference" }],
+    });
+    await pause(1600);
+    results.push([
+      "Enabling motion initializes once",
+      await evaluate(
+        `document.documentElement.classList.contains('lenis') && document.querySelectorAll('.pin-spacer').length===2`,
+      ),
+    ]);
+    await call("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+    });
+    await pause(300);
+    results.push(["Live preference cleanup", await reducedState()]);
+    console.log(JSON.stringify({ results, errors }, null, 2));
+    if (results.some(([, pass]) => !pass) || errors.length)
+      process.exitCode = 1;
+  }
+  if (mode === "small" || mode === "mobile") {
+    const safe = await evaluate(
+      `document.documentElement.scrollWidth<=document.documentElement.clientWidth && document.querySelectorAll('.pin-spacer').length===0`,
+    );
+    console.log("Mobile layout and native scroll:", safe);
+    if (!safe || errors.length) process.exitCode = 1;
   }
   console.log(
     JSON.stringify(

@@ -20,6 +20,9 @@ import {
   certifications,
 } from "./content";
 import "./styles.css";
+import "@fontsource-variable/dm-sans";
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
 import FluidReveal from "./motion/FluidReveal";
 import { useSmoothScroll } from "./motion/useSmoothScroll";
 import { usePortfolioMotion } from "./motion/usePortfolioMotion";
@@ -367,7 +370,7 @@ function App() {
             </div>
           </div>
           <h1 className="hero-wordmark" aria-label={profile.name}>
-            {`${profile.name.toUpperCase()}’`.split("").map((letter, i) => (
+            {`${profile.name.toUpperCase()}`.split("").map((letter, i) => (
               <span key={i} aria-hidden="true">
                 {letter}
               </span>

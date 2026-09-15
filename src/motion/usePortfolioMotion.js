@@ -177,14 +177,14 @@ export function usePortfolioMotion(root) {
               },
             });
             letters.forEach((letter, i) => {
-              const targetX = () => 22 + i * 21 - letter.offsetLeft;
+              const targetX = () => 40 + i * 20 - letter.offsetLeft;
               timeline
                 .to(
                   letter,
                   {
                     x: targetX,
-                    y: 35,
-                    scale: 0.075,
+                    y: 0,
+                    scale: 0.06,
                     transformOrigin: "0 0",
                     duration: 0.32,
                     ease: "power3.inOut",

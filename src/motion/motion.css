@@ -314,14 +314,6 @@ html.lenis {
     margin-bottom: 65px;
   }
 }
-@media (hover: none) {
-  .project-explore {
-    display: none;
-  }
-  .project.cursor-active {
-    cursor: pointer;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .hero-fluid,
   .hero-scroll-film {
@@ -342,6 +334,7 @@ html.lenis {
   }
   .small-logo {
     opacity: 0;
+    visibility: hidden;
   }
   .project {
     cursor: pointer !important;

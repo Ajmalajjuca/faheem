@@ -15,7 +15,7 @@ Production build: `npm run build`. Preview the build: `npm run preview`.
 
 Edit `src/content.js` to update the name, role, introduction, services, projects, email, booking URL, and social links. Images are in `public/images/`. The printable CV source is `public/resume.html`; its generated download is `public/faheem-ahmed-koppal-cv.pdf`.
 
-The work descriptions come from Faheem’s supplied CV. Current images and sculptural assets are references from Nothin’, downloaded for this design preview. They are labeled as placeholders and are not represented as Faheem’s project media. Replace them with actual films, project images, and owned/licensed visual assets before public launch. Fonts are DM Sans and IBM Plex Mono, loaded from Google Fonts; these approximate the reference’s typography.
+The work descriptions come from Faheem’s supplied CV. Current images and sculptural assets are references from Nothin’, downloaded for this design preview. They are labeled as placeholders and are not represented as Faheem’s project media. Replace them with actual films, project images, and owned/licensed visual assets before public launch. Fonts are DM Sans and IBM Plex Mono, bundled locally through Fontsource; these approximate the reference’s typography without requiring an external font request.
 
 No messages are submitted, and no external site is deployed. Email and telephone links are configured from the supplied CV. Adding `profile.bookingUrl` activates the booking CTA. Optional social links can be configured in the same file.
 
