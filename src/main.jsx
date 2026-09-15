@@ -24,6 +24,7 @@ import "@fontsource-variable/dm-sans";
 import "@fontsource/ibm-plex-mono/latin-400.css";
 import "@fontsource/ibm-plex-mono/latin-500.css";
 import FluidReveal from "./motion/FluidReveal";
+import HeroWordmark from "./motion/HeroWordmark";
 import { useSmoothScroll } from "./motion/useSmoothScroll";
 import { usePortfolioMotion } from "./motion/usePortfolioMotion";
 import "./motion/motion.css";
@@ -356,9 +357,8 @@ function App() {
               preload="metadata"
               aria-hidden="true"
             />
-            <span className="reference-label">Motion reference / Nothin’</span>
           </div>
-          <FluidReveal src="/images/hero-motion.mp4" />
+          <FluidReveal />
           <div className="hero-top">
             <div>
               <p>
@@ -370,11 +370,7 @@ function App() {
             </div>
           </div>
           <h1 className="hero-wordmark" aria-label={profile.name}>
-            {`${profile.name.toUpperCase()}`.split("").map((letter, i) => (
-              <span key={i} aria-hidden="true">
-                {letter}
-              </span>
-            ))}
+            <HeroWordmark />
           </h1>
           <div className="hero-bottom">
             <p>
@@ -481,7 +477,7 @@ function App() {
           </div>
           <div className="film-stage-caption eyebrow">
             <span>( A cinematic perspective )</span>
-            <span>Motion reference / Nothin’</span>
+            <span>AI motion / Faheem Ahmed Koppal</span>
           </div>
         </section>
 
@@ -729,8 +725,8 @@ function App() {
             <a href="https://www.noth.in/" target="_blank" rel="noreferrer">
               Nothin’
             </a>
-            . Images and motion are visual placeholders by Nothin’, not{" "}
-            {profile.name}’s project media.
+            . Images are visual placeholders by Nothin’, not {profile.name}’s
+            project media.
           </p>
         </footer>
       </main>

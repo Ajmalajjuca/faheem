@@ -1,291 +1,208 @@
 import { useEffect, useRef } from "react";
+import { createGpuFluid } from "./gpuFluid";
 
-// A low-resolution, incompressible flow field transports the reveal mask.
-// Rendering stays on a separate canvas so the real heading remains accessible.
-export default function FluidReveal({ src }) {
-  const canvasRef = useRef(null);
+// A crisp, full-resolution wake for devices without floating-point WebGL.
+function createCanvasWake(canvas) {
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  const mask = document.createElement("canvas");
+  const ink = mask.getContext("2d");
+  let width,
+    height,
+    padding,
+    ratio,
+    trails = [];
+  return {
+    resize(w, h, p) {
+      width = w;
+      height = h;
+      padding = p;
+      ratio = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = mask.width = Math.round(w * ratio);
+      canvas.height = mask.height = Math.round(h * ratio);
+      canvas.dataset.renderer = "canvas2d";
+      canvas.dataset.maskResolution = `${canvas.width}x${canvas.height}`;
+      trails = [];
+    },
+    frame(dt, points, video) {
+      trails.push(...points.map((p) => ({ ...p, age: 0 })));
+      trails = trails.filter((p) => (p.age += dt) < 2.5);
+      ink.clearRect(0, 0, mask.width, mask.height);
+      ink.fillStyle = "#fff";
+      for (const p of trails) {
+        ink.beginPath();
+        ink.arc(
+          p.x * canvas.width,
+          (1 - p.y) * canvas.height,
+          0.032 * canvas.height * (1 - p.age / 2.5),
+          0,
+          Math.PI * 2,
+        );
+        ink.fill();
+      }
+      context.globalCompositeOperation = "source-over";
+      context.fillStyle = "#020202";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      const w = (width - 2 * padding) * ratio,
+        h = (w * 9) / 16;
+      if (video.readyState >= 2)
+        context.drawImage(
+          video,
+          padding * ratio,
+          (height * ratio - h) / 2,
+          w,
+          h,
+        );
+      context.globalCompositeOperation = "destination-in";
+      context.drawImage(mask, 0, 0);
+    },
+    clear() {
+      trails = [];
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    },
+    destroy() {
+      trails = [];
+    },
+  };
+}
+
+export default function FluidReveal() {
+  const hostRef = useRef(null);
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const hero = canvas.parentElement;
+    const host = hostRef.current,
+      hero = host.parentElement;
+    const video = hero.querySelector(".hero-scroll-film video");
     const preference = matchMedia("(prefers-reduced-motion: reduce)");
     let cleanup = () => {};
-
     function setup() {
       cleanup();
       if (preference.matches) return;
-      const context = canvas.getContext("2d", { alpha: true });
-      if (!context) return;
-      const mask = document.createElement("canvas");
-      const maskContext = mask.getContext("2d");
-      const video = document.createElement("video");
-      video.src = src;
-      video.muted = true;
-      video.loop = true;
-      video.playsInline = true;
-      video.preload = "none";
-      const fallback = new Image();
-      fallback.src = "/images/foil.webp";
-      let width,
-        height,
-        cols,
-        rows,
-        total,
-        u,
-        v,
-        nextU,
-        nextV,
-        dye,
-        nextDye,
-        pressure,
-        nextPressure,
-        divergence,
-        pixels;
-      let frame = 0,
-        visible = true,
+      let canvas = document.createElement("canvas"),
+        engine;
+      host.replaceChildren(canvas);
+      try {
+        engine = createGpuFluid(canvas);
+      } catch (error) {
+        console.warn("Using canvas reveal fallback:", error.message);
+      }
+      if (!engine) {
+        canvas = document.createElement("canvas");
+        host.replaceChildren(canvas);
+        engine = createCanvasWake(canvas);
+      }
+      if (!engine) return;
+      let width = 0,
+        height = 0,
+        frame = 0,
+        previous = null,
         lastTime = 0,
         lastInput = 0,
-        previous = null,
-        destroyed = false;
-      const pointerQueue = [];
-
+        visible = true;
+      const queue = [];
+      function stop() {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        previous = null;
+        queue.length = 0;
+        engine.clear();
+        canvas.dataset.active = "false";
+      }
       function resize() {
         const rect = hero.getBoundingClientRect();
+        if (rect.width === width && rect.height === height) return;
         width = rect.width;
         height = rect.height;
-        const ratio = Math.min(devicePixelRatio || 1, 1.5);
-        canvas.width = Math.round(width * ratio);
-        canvas.height = Math.round(height * ratio);
-        cols = width < 600 ? 120 : 240;
-        rows = Math.max(60, Math.round((cols * height) / width));
-        total = cols * rows;
-        mask.width = cols;
-        mask.height = rows;
-        [u, v, nextU, nextV, dye, nextDye, pressure, nextPressure, divergence] =
-          Array.from({ length: 9 }, () => new Float32Array(total));
-        pixels = maskContext.createImageData(cols, rows);
+        engine.resize(
+          width,
+          height,
+          parseFloat(getComputedStyle(hero).paddingLeft),
+        );
         previous = null;
       }
-      const sample = (field, x, y) => {
-        x = Math.max(0.5, Math.min(cols - 1.5, x));
-        y = Math.max(0.5, Math.min(rows - 1.5, y));
-        const ix = Math.floor(x),
-          iy = Math.floor(y),
-          fx = x - ix,
-          fy = y - iy,
-          p = iy * cols + ix;
-        return (
-          field[p] * (1 - fx) * (1 - fy) +
-          field[p + 1] * fx * (1 - fy) +
-          field[p + cols] * (1 - fx) * fy +
-          field[p + cols + 1] * fx * fy
-        );
-      };
-      function splat(point) {
-        const { x, y, dx, dy } = point;
-        const radius = width < 600 ? 3.2 : 3.8;
-        for (
-          let yy = Math.max(1, Math.floor(y - radius * 3));
-          yy < Math.min(rows - 1, y + radius * 3);
-          yy++
-        ) {
-          for (
-            let xx = Math.max(1, Math.floor(x - radius * 3));
-            xx < Math.min(cols - 1, x + radius * 3);
-            xx++
-          ) {
-            const dist = ((xx - x) ** 2 + (yy - y) ** 2) / (radius * radius),
-              weight = Math.exp(-dist * 1.4),
-              p = yy * cols + xx;
-            dye[p] = Math.min(2.5, dye[p] + weight * 1.3);
-            u[p] += dx * weight * 0.9;
-            v[p] += dy * weight * 0.9;
-          }
-        }
-      }
-      function step(dt) {
-        pointerQueue.splice(0).forEach(splat);
-        // Backtrace velocity, then project out divergence to keep a flowing wake.
-        for (let y = 1; y < rows - 1; y++)
-          for (let x = 1; x < cols - 1; x++) {
-            const p = y * cols + x,
-              bx = x - u[p] * dt,
-              by = y - v[p] * dt;
-            nextU[p] = sample(u, bx, by) * Math.pow(0.967, dt);
-            nextV[p] = sample(v, bx, by) * Math.pow(0.967, dt);
-          }
-        [u, nextU] = [nextU, u];
-        [v, nextV] = [nextV, v];
-        pressure.fill(0);
-        for (let y = 1; y < rows - 1; y++)
-          for (let x = 1; x < cols - 1; x++) {
-            const p = y * cols + x;
-            divergence[p] =
-              -0.5 * (u[p + 1] - u[p - 1] + v[p + cols] - v[p - cols]);
-          }
-        for (let k = 0; k < 10; k++) {
-          for (let y = 1; y < rows - 1; y++)
-            for (let x = 1; x < cols - 1; x++) {
-              const p = y * cols + x;
-              nextPressure[p] =
-                (divergence[p] +
-                  pressure[p - 1] +
-                  pressure[p + 1] +
-                  pressure[p - cols] +
-                  pressure[p + cols]) *
-                0.25;
-            }
-          [pressure, nextPressure] = [nextPressure, pressure];
-        }
-        for (let y = 1; y < rows - 1; y++)
-          for (let x = 1; x < cols - 1; x++) {
-            const p = y * cols + x;
-            u[p] -= 0.5 * (pressure[p + 1] - pressure[p - 1]);
-            v[p] -= 0.5 * (pressure[p + cols] - pressure[p - cols]);
-          }
-        const fade = Math.pow(0.982, dt);
-        for (let y = 1; y < rows - 1; y++)
-          for (let x = 1; x < cols - 1; x++) {
-            const p = y * cols + x;
-            nextDye[p] = sample(dye, x - u[p] * dt, y - v[p] * dt) * fade;
-          }
-        [dye, nextDye] = [nextDye, dye];
-      }
-      function draw() {
-        const data = pixels.data;
-        for (let p = 0; p < total; p++) {
-          const edge = Math.max(0, Math.min(1, (dye[p] - 0.12) / 0.045));
-          data[p * 4 + 3] = Math.round(edge * edge * (3 - 2 * edge) * 255);
-        }
-        maskContext.putImageData(pixels, 0, 0);
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.globalCompositeOperation = "source-over";
-        if (video.readyState >= 2) {
-          const scale = Math.max(
-            canvas.width / video.videoWidth,
-            canvas.height / video.videoHeight,
-          );
-          context.drawImage(
-            video,
-            (canvas.width - video.videoWidth * scale) / 2,
-            (canvas.height - video.videoHeight * scale) / 2,
-            video.videoWidth * scale,
-            video.videoHeight * scale,
-          );
-        } else {
-          context.fillStyle = "#080808";
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          if (fallback.complete && fallback.naturalWidth) {
-            const size = canvas.width * 0.65;
-            context.drawImage(
-              fallback,
-              (canvas.width - size) / 2,
-              (canvas.height - size) / 2,
-              size,
-              size,
-            );
-          }
-        }
-        context.globalCompositeOperation = "destination-in";
-        context.drawImage(mask, 0, 0, canvas.width, canvas.height);
-        context.globalCompositeOperation = "source-over";
-      }
-      function animate(time) {
+      function tick(now) {
         frame = 0;
-        if (destroyed || !visible || document.hidden) return;
-        if (time - lastInput > 6500) {
-          context.clearRect(0, 0, canvas.width, canvas.height);
-          video.pause();
+        if (!visible || document.hidden || now - lastInput > 7000) {
+          stop();
           return;
         }
-        step(Math.min(1.8, (time - lastTime) / 16.667 || 1));
-        lastTime = time;
-        draw();
-        frame = requestAnimationFrame(animate);
+        const dt = Math.min(1 / 30, Math.max(1 / 240, (now - lastTime) / 1000));
+        lastTime = now;
+        engine.frame(dt, queue.splice(0), video);
+        canvas.dataset.active = "true";
+        frame = requestAnimationFrame(tick);
       }
       function move(event) {
-        if (
-          !visible ||
-          event.target.closest("a,button") ||
-          preference.matches
-        ) {
-          previous = null;
-          return;
-        }
+        if (!visible || document.hidden) return;
         const rect = hero.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / width) * cols,
-          y = ((event.clientY - rect.top) / height) * rows;
-        if (!previous) previous = { x, y };
-        const dx = x - previous.x,
-          dy = y - previous.y;
-        const distance = Math.hypot(dx, dy);
-        if (distance < 0.15) return;
-        const steps = Math.min(16, Math.max(1, Math.ceil(distance / 2)));
-        for (let i = 1; i <= steps; i++)
-          pointerQueue.push({
-            x: previous.x + (dx * i) / steps,
-            y: previous.y + (dy * i) / steps,
-            dx: Math.max(-12, Math.min(12, dx)),
-            dy: Math.max(-12, Math.min(12, dy)),
+        const p = {
+          x: (event.clientX - rect.left) / width,
+          y: 1 - (event.clientY - rect.top) / height,
+        };
+        const old = previous || p,
+          dx = p.x - old.x,
+          dy = p.y - old.y;
+        const count = Math.min(
+          8,
+          Math.max(1, Math.ceil(Math.hypot(dx * width, dy * height) / 12)),
+        );
+        for (let i = 1; i <= count; i++)
+          queue.push({
+            x: old.x + (dx * i) / count,
+            y: old.y + (dy * i) / count,
+            dx: Math.max(-0.07, Math.min(0.07, dx)) / count,
+            dy: Math.max(-0.07, Math.min(0.07, dy)) / count,
           });
-        previous = { x, y };
+        if (queue.length > 24) queue.splice(0, queue.length - 24);
+        previous = p;
         lastInput = performance.now();
         if (video.paused) video.play().catch(() => {});
         if (!frame) {
-          lastTime = performance.now();
-          frame = requestAnimationFrame(animate);
+          lastTime = lastInput;
+          frame = requestAnimationFrame(tick);
         }
       }
-      function leave() {
+      const leave = () => {
         previous = null;
-      }
-      function pause() {
-        if (document.hidden) {
-          cancelAnimationFrame(frame);
-          frame = 0;
-          video.pause();
-        }
-      }
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          visible = entry.isIntersecting;
-          if (!visible) {
-            cancelAnimationFrame(frame);
-            frame = 0;
-            video.pause();
-            dye.fill(0);
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            previous = null;
-          }
-        },
-        { threshold: 0.05 },
-      );
-      const resizeObserver = new ResizeObserver(resize);
+      };
+      const visibility = () => {
+        if (document.hidden) stop();
+      };
+      const lost = (event) => {
+        event.preventDefault();
+        stop();
+      };
+      const observer = new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting;
+        if (!visible) stop();
+      });
+      const sizing = new ResizeObserver(resize);
       resize();
-      resizeObserver.observe(hero);
+      sizing.observe(hero);
       observer.observe(hero);
       hero.addEventListener("pointermove", move, { passive: true });
       hero.addEventListener("pointerleave", leave);
-      document.addEventListener("visibilitychange", pause);
+      document.addEventListener("visibilitychange", visibility);
+      canvas.addEventListener("webglcontextlost", lost);
+      canvas.addEventListener("webglcontextrestored", setup);
       cleanup = () => {
-        destroyed = true;
-        cancelAnimationFrame(frame);
-        resizeObserver.disconnect();
+        stop();
+        sizing.disconnect();
         observer.disconnect();
         hero.removeEventListener("pointermove", move);
         hero.removeEventListener("pointerleave", leave);
-        document.removeEventListener("visibilitychange", pause);
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        document.removeEventListener("visibilitychange", visibility);
+        canvas.removeEventListener("webglcontextlost", lost);
+        canvas.removeEventListener("webglcontextrestored", setup);
+        engine.destroy();
+        host.replaceChildren();
       };
     }
     setup();
     preference.addEventListener("change", setup);
     return () => {
-      cleanup();
       preference.removeEventListener("change", setup);
+      cleanup();
     };
-  }, [src]);
-  return <canvas className="hero-fluid" ref={canvasRef} aria-hidden="true" />;
+  }, []);
+  return <div className="hero-fluid" ref={hostRef} aria-hidden="true" />;
 }

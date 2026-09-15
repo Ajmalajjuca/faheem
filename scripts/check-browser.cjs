@@ -270,9 +270,9 @@ const WebSocket = require("/usr/share/nodejs/ws");
       Buffer.from(shot.result.data, "base64"),
     );
     results.push([
-      "Fluid mask contains visible pixels",
+      "High-resolution fluid renderer is active",
       await evaluate(
-        `(()=>{const c=document.querySelector('.hero-fluid');const p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=3;i<p.length;i+=4)if(p[i]>50)n++;return n>2000})()`,
+        `(()=>{const c=document.querySelector('.hero-fluid canvas');return c.dataset.active==='true' && parseInt(c.dataset.maskResolution)>=768 && c.width>=document.querySelector('.hero').clientWidth})()`,
       ),
     ]);
     const initial = await evaluate("scrollY");
@@ -348,6 +348,35 @@ const WebSocket = require("/usr/share/nodejs/ws");
     console.log(JSON.stringify({ results, errors }, null, 2));
     if (results.some(([, pass]) => !pass) || errors.length)
       process.exitCode = 1;
+  }
+  if (mode === "hero-info") {
+    console.log(await evaluate(`(()=>{const v=document.querySelector('.hero-scroll-film video'),g=document.querySelector('.hero-fluid canvas').getContext('webgl2'),ext=g?.getExtension('WEBGL_debug_renderer_info');return {video:{ready:v.readyState,time:v.currentTime,width:v.videoWidth,error:v.error?.message,paused:v.paused,network:v.networkState,canPlay:v.canPlayType('video/mp4')},gpu:ext?g.getParameter(ext.UNMASKED_RENDERER_WEBGL):null}})()`));
+  }
+  if (mode === "hero") {
+    const results = [];
+    console.log("VIDEO AND GPU",await evaluate(`(()=>{const v=document.querySelector('.hero-scroll-film video'),g=document.querySelector('.hero-fluid canvas').getContext('webgl2'),ext=g?.getExtension('WEBGL_debug_renderer_info');return {video:{ready:v.readyState,time:v.currentTime,width:v.videoWidth,error:v.error?.message,paused:v.paused},gpu:ext?g.getParameter(ext.UNMASKED_RENDERER_WEBGL):null}})()`));
+    results.push(["Foreground and video artboards align", await evaluate(`(()=>{const a=document.querySelector('.hero-lettering').getBoundingClientRect(),b=document.querySelector('.hero-scroll-film video').getBoundingClientRect();return ['x','y','width','height'].every(k=>Math.abs(a[k]-b[k])<1)})()`)]);
+    results.push(["GPU mask is high resolution", await evaluate(`(()=>{const c=document.querySelector('.hero-fluid canvas');return c.dataset.renderer==='webgl2'&&parseInt(c.dataset.maskResolution)>=1400})()`)]);
+    results.push(["Hero heading has accessible name", await evaluate(`document.querySelector('h1').getAttribute('aria-label')==='Faheem'`)]);
+    const stats = await evaluate(`new Promise(resolve=>{const samples=[];let last=performance.now();function frame(now){samples.push(now-last);last=now;if(samples.length<60)requestAnimationFrame(frame);else resolve({average:samples.reduce((a,b)=>a+b)/samples.length,max:Math.max(...samples)})}requestAnimationFrame(frame)})`);
+    console.log("IDLE FRAME TIMING", stats);
+    for (let i=0;i<50;i++) {
+      await call("Input.dispatchMouseEvent",{type:"mouseMoved",x:100+i*24,y:500+Math.sin(i*.3)*70});
+      await pause(16);
+    }
+    console.log("ACTIVE FRAME TIMING", await evaluate(`new Promise(resolve=>{const samples=[];let last=performance.now();function frame(now){samples.push(now-last);last=now;if(samples.length<60)requestAnimationFrame(frame);else resolve({average:samples.reduce((a,b)=>a+b)/samples.length,max:Math.max(...samples)})}requestAnimationFrame(frame)})`));
+    const shot=await call("Page.captureScreenshot",{format:"png"});fs.writeFileSync('/tmp/faheem-hero-flow.png',Buffer.from(shot.result.data,'base64'));
+    const rect=await evaluate(`(()=>{const r=document.querySelector('.hero-social').getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height}})()`);
+    for (let i=0;i<28;i++) {
+      await call("Input.dispatchMouseEvent",{type:"mouseMoved",x:rect.x+rect.width*i/28,y:rect.y+rect.height/2});await pause(16);
+    }
+    results.push(["Hover over links keeps reveal active", await evaluate(`document.querySelector('.hero-fluid canvas').dataset.active==='true'`)]);
+    results.push(["Bottom links invert over dark backgrounds", await evaluate(`getComputedStyle(document.querySelector('.hero-bottom')).mixBlendMode==='difference'&&getComputedStyle(document.querySelector('.hero-social a')).color==='rgb(255, 255, 255)'`)]);
+    const links=await call("Page.captureScreenshot",{format:"png"});fs.writeFileSync('/tmp/faheem-hero-links.png',Buffer.from(links.result.data,'base64'));
+    await evaluate(`document.querySelector('.hero-scroll-film').style.opacity=1;document.querySelector('.hero-wordmark').style.opacity=0;`);
+    const full=await call("Page.captureScreenshot",{format:"png"});fs.writeFileSync('/tmp/faheem-hero-video.png',Buffer.from(full.result.data,'base64'));
+    console.log(JSON.stringify({results,errors,renderer:await evaluate(`({...document.querySelector('.hero-fluid canvas').dataset})`)},null,2));
+    if(results.some(([,pass])=>!pass)||errors.length)process.exitCode=1;
   }
   if (mode === "reduced") {
     const results = [];

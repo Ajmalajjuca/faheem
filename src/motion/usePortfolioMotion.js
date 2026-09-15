@@ -17,7 +17,7 @@ export function usePortfolioMotion(root) {
         if (!conditions.motion) return;
         const cleanups = [];
         const context = gsap.context(() => {
-          gsap.from(".hero-wordmark span", {
+          gsap.from(".hero-glyph", {
             yPercent: 115,
             stagger: { each: 0.055, from: "random" },
             duration: 1.3,
@@ -56,21 +56,11 @@ export function usePortfolioMotion(root) {
               },
             });
             hero
-              .to(".hero-scroll-film", { opacity: 1, scale: 1, duration: 1 }, 0)
-              .to(
-                ".hero-wordmark",
-                { yPercent: -25, opacity: 0, duration: 0.65 },
-                0,
-              )
-              .to(
-                ".hero-top, .hero-bottom",
-                { y: -35, opacity: 0, duration: 0.45 },
-                0,
-              )
+              .to(".hero-scroll-film", { opacity: 1, duration: 1 }, 0)
+              .to(".hero-wordmark", { opacity: 0, duration: 0.65 }, 0)
               .to(".hero-fluid", { opacity: 0, duration: 0.2 }, 0);
           } else {
             gsap.to(".hero-wordmark", {
-              yPercent: 20,
               opacity: 0,
               ease: "none",
               scrollTrigger: {
