@@ -1,0 +1,349 @@
+/* Motion owns transforms; the layout stylesheet owns geometry. */
+html,
+html.lenis {
+  scroll-behavior: auto;
+}
+.hero {
+  isolation: isolate;
+  background: #fff;
+}
+.hero-top {
+  padding-left: 0;
+}
+.hero-wordmark {
+  position: relative;
+  z-index: 1;
+}
+.hero-top,
+.hero-bottom {
+  position: relative;
+  z-index: 4;
+}
+.hero-fluid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+}
+.hero-scroll-film {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  transform: scale(1.06);
+  background: #080808;
+}
+.hero-scroll-film video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hero-scroll-film .reference-label {
+  bottom: 25px;
+  left: 24px;
+}
+.header-navigation {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+.hover-navigation {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  pointer-events: none;
+}
+.hover-navigation a {
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 650;
+  transform: translateY(16px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.35s,
+    visibility 0.35s;
+}
+.hover-navigation a:nth-child(2) {
+  transition-delay: 0.06s;
+}
+.hover-navigation a:nth-child(3) {
+  transition-delay: 0.12s;
+}
+.header-navigation:hover .hover-navigation,
+.header-navigation:focus-within .hover-navigation {
+  pointer-events: auto;
+}
+.header-navigation:hover .hover-navigation a,
+.header-navigation:focus-within .hover-navigation a {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.header-navigation:hover .menu-grid {
+  transform: rotate(45deg);
+}
+.pill {
+  overflow: hidden;
+  transform: none;
+}
+.pill:hover {
+  transform: none;
+}
+.pill-label {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  line-height: 1.4;
+}
+.pill-label > span {
+  display: block;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pill-label > span + span {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  white-space: nowrap;
+}
+.pill:hover .pill-label > span {
+  transform: translateY(-100%);
+}
+.pill-arrows {
+  display: block;
+  position: relative;
+  width: 19px;
+  height: 19px;
+  overflow: hidden;
+}
+.pill-arrows svg {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pill-arrows svg + svg {
+  transform: translateX(-140%);
+}
+.pill:hover .pill-arrows svg {
+  transform: translateX(140%);
+}
+.pill:hover .pill-arrows svg + svg {
+  transform: translateX(0);
+}
+.motion-line {
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+  transform-origin: 0 100%;
+}
+.work-section {
+  position: relative;
+}
+.works-word {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.works-word span {
+  display: block;
+  transform-origin: 0 0;
+}
+.project {
+  position: relative;
+}
+.project-explore {
+  top: 0;
+  left: 0;
+  z-index: 8;
+  padding: 7px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  background: #080808;
+  color: #fff;
+  gap: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  transition: none;
+  white-space: nowrap;
+}
+.project:hover .project-explore {
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+}
+.project.cursor-active {
+  cursor: none;
+}
+.project:focus-visible .project-explore {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  visibility: visible;
+}
+.floating-object {
+  transition:
+    left 0.8s cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: none;
+}
+.floating-object img {
+  animation: none;
+}
+.loose-letter {
+  will-change: transform;
+}
+.film-stage {
+  height: 100svh;
+  min-height: 650px;
+  position: relative;
+  overflow: hidden;
+  background: #080808;
+}
+.film-stage-room {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+}
+.film-stage-screen {
+  position: absolute;
+  width: 36%;
+  height: 29%;
+  left: 32%;
+  top: 35%;
+  overflow: hidden;
+  background: #080808;
+}
+.film-stage-screen video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.film-stage-caption {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  text-shadow: 0 1px 5px #000;
+  font-size: 9px;
+}
+.footer-wordmark {
+  display: flex;
+  justify-content: center;
+  font-size: 23.4vw;
+  font-weight: 1000;
+  line-height: 0.95;
+  letter-spacing: -0.088em;
+  padding-right: 0.05em;
+  overflow: hidden;
+  margin-bottom: 50px;
+}
+.footer-wordmark span {
+  display: block;
+  transform-origin: 50% 55%;
+}
+.footer .contact-actions {
+  margin-bottom: 95px;
+}
+.menu-links button span {
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.menu-links button:hover span {
+  transform: translateX(15px);
+}
+.menu-links button svg {
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.menu-links button:hover svg {
+  transform: rotate(45deg);
+}
+@media (max-width: 991px) {
+  .hover-navigation {
+    display: none;
+  }
+  .hero-scroll-film {
+    display: none;
+  }
+  .works-word {
+    position: relative;
+    overflow: hidden;
+  }
+  .film-stage {
+    height: 70svh;
+    min-height: 440px;
+  }
+  .film-stage-room {
+    object-fit: fill;
+  }
+  .footer-wordmark {
+    font-size: 23vw;
+    margin-bottom: 30px;
+  }
+}
+@media (max-width: 600px) {
+  .hero-top {
+    padding-left: 0;
+    padding-right: 25px;
+  }
+  .hero-top p {
+    font-size: 19px;
+  }
+  .hero-wordmark {
+    margin-top: -45px;
+  }
+  .film-stage {
+    height: 480px;
+  }
+  .film-stage-caption {
+    left: 16px;
+    right: 16px;
+    bottom: 18px;
+    font-size: 7px;
+    gap: 20px;
+  }
+  .footer .contact-actions {
+    margin-bottom: 65px;
+  }
+}
+@media (hover: none) {
+  .project-explore {
+    display: none;
+  }
+  .project.cursor-active {
+    cursor: pointer;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-fluid,
+  .hero-scroll-film {
+    display: none;
+  }
+  .hover-navigation a {
+    transition: none;
+  }
+  .works-word {
+    position: relative;
+  }
+  .hero-top,
+  .hero-bottom,
+  .hero-wordmark,
+  .footer-wordmark span {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .small-logo {
+    opacity: 0;
+  }
+  .project {
+    cursor: pointer !important;
+  }
+}
